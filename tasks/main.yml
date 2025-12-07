@@ -1,0 +1,20 @@
+---
+- name: Check if Python is already installed {{ python_version }}
+  ansible.builtin.shell: >
+    set -o pipefail && python{{ python_version.split('.')[0] }}.{{ python_version.split('.')[1] }} --version | cut -f2 -d' '
+  register: current_python_version
+  changed_when: false
+  failed_when: false
+
+- name: Proceed to install Python {{ python_version }}
+  ansible.builtin.include_tasks: install.yml
+  when: current_python_version.stdout != python_version
+
+- name: Verify Python installation
+  ansible.builtin.command: python{{ python_version.split('.')[0] }}.{{ python_version.split('.')[1] }} --version
+  register: verify_python
+  changed_when: false
+
+- name: Display installed Python version
+  ansible.builtin.debug:
+    msg: "Installed Python version: {{ verify_python.stdout }}"

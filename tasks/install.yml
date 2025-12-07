@@ -1,0 +1,63 @@
+---
+- name: Ensure build dependencies are installed
+  ansible.builtin.package:
+    name: "{{ (ansible_facts['os_family'] | lower == 'redhat') | ternary(build_deps_redhat, build_deps_debian) }}"
+    state: present
+    update_cache: true
+
+- name: Create temporary build directory
+  ansible.builtin.tempfile:
+    state: directory
+    suffix: build
+  register: tmp_dir
+
+- name: Downloading Python sources
+  ansible.builtin.get_url:
+    url: "{{ python_src_url }}"
+    dest: "{{ tmp_dir.path }}/Python-{{ python_version }}.tgz"
+    mode: '0644'
+    owner: root
+    group: root
+  register: python_source
+
+- name: Unpacking Python sources
+  ansible.builtin.unarchive:
+    copy: false
+    dest: "{{ tmp_dir.path }}"
+    src: "{{ python_source.dest }}"
+
+- name: Set install_dir
+  ansible.builtin.set_fact:
+    install_dir: "{{ tmp_dir.path }}/Python-{{ python_version }}"
+
+- name: Configuring Python
+  ansible.builtin.command: ./configure --enable-optimizations --with-lto --enable-shared --prefix=/usr
+  args:
+    chdir: "{{ install_dir }}"
+    creates: "{{ install_dir }}/Makefile"
+
+- name: Make Python
+  ansible.builtin.shell: make -j$(nproc) > /dev/null
+  args:
+    chdir: "{{ install_dir }}"
+    creates: "{{ install_dir }}/libpython3.so"
+
+- name: Install Python
+  ansible.builtin.shell: make altinstall -j$(nproc) 1> /dev/null
+  args:
+    chdir: "{{ install_dir }}"
+    creates: "/usr/bin/python{{ python_version.split('.')[0] }}.{{ python_version.split('.')[1] }}"
+
+- name: Setup ldconfig
+  ansible.builtin.lineinfile:
+    path: /etc/ld.so.conf.d/python3.conf
+    line: /usr/lib
+    owner: root
+    group: root
+    mode: '0644'
+    create: true
+
+- name: Delete temporary directory
+  ansible.builtin.file:
+    path: "{{ tmp_dir.path }}"
+    state: absent

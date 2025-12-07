@@ -1,0 +1,14 @@
+---
+python_src_url: "https://www.python.org/ftp/python/{{ python_version }}/Python-{{ python_version }}.tgz"
+
+build_deps_debian:
+  - gcc
+  - make
+  - zlib1g-dev
+  - libffi-dev
+
+build_deps_redhat:
+  - gcc
+  - make
+  - zlib-devel
+  - libffi-devel
